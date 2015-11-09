@@ -1,7 +1,6 @@
+#include <map>
 #include <set>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <tclap/CmdLine.h>
 #include <fstream>
 
@@ -84,7 +83,7 @@ int main(int argc, const char *argv[]) {
         std::cout << "Getting all read IDs from the query..." << std::endl;
 
         //get all read ids from query file
-        std::unordered_map<std::string, std::set<std::pair<std::string, int>>> reads_and_tax_ids;
+        std::map<std::string, std::set<std::pair<int, std::string>>> reads_and_tax_ids;
         std::vector<std::string> ids = ingest_read_ids(querypath);
 
         //insert each read id into data structure where read -> list of tax ids
@@ -168,7 +167,7 @@ int main(int argc, const char *argv[]) {
                     // if match quality is high enough, add that tax id to the data structure
                     if (edit_dist <= max_edit_distance) {
                         std::string taxid = reference_id.substr(reference_id.find('-') + 1);
-                        reads_and_tax_ids[read_id].insert(std::pair<std::string, int>(taxid, edit_dist));
+                        reads_and_tax_ids[read_id].insert(std::pair<int, std::string>(edit_dist, taxid));
                     }
 
                     //find the next newline if we have one
@@ -194,11 +193,20 @@ int main(int argc, const char *argv[]) {
 
         std::ofstream resultstream(resultspath);
         for (auto i = reads_and_tax_ids.begin(); i != reads_and_tax_ids.end(); i++) {
-            resultstream << i->first;
-            for (auto j = i->second.begin(); j != i->second.end(); j++) {
-                resultstream << ':' << j->first << '/' << j->second;
+            if (i->second.size() > 0) {
+                resultstream << i->first << ':';
+
+                int current_edit_dist = 0;
+                for (auto j = i->second.begin(); j != i->second.end(); j++) {
+                    while (j->first != current_edit_dist) {
+                        resultstream << ':';
+                        current_edit_dist++;
+                    }
+
+                    resultstream << j->second << ',';
+                }
+                resultstream << '\n';
             }
-            resultstream << '\n';
         }
         resultstream.close();
 
